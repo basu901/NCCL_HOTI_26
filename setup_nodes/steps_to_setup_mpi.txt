@@ -1,0 +1,40 @@
+Make sure ICMP and SSH are allowed for your Inbound rules on Security Group for ec2
+Make sure you set 400 permissions to the key pair.
+
+1) We are working with a total of 3 nodes: 1 driver, 2 workers.
+
+The naming convention is 
+
+driver: WORKER_1_IP
+worker1: WORKER_2_IP
+worker2: WORKER_3_IP
+
+Key name for driver: driver.pem
+Key name for worker1: worker1.pem
+Key name for worker2: worker2.pem
+
+2) Remember to update the public IP address in node_details.txt, if needed. Run "push_file_to_nodes.sh" with:
+- "node_details.txt" as the first arg. 'node_details.txt' contains the IP address of each node, alongwith the key name. This is used to send the subsequent files
+and also on each node.
+- "node_details_private.txt" as the 2nd args
+- "setup_ec2_script.sh" as the 3rd args
+- "modify_bash.sh" as the 4th args
+The 2nd,3rd,4th args do not matter in this commmand as they are being copied as files to all the machines.
+
+3) Run "setup_ec2_script.sh" on each node with "node_details_private.txt" as the 1st args.
+Run "source modify_bash.sh" on each node.
+
+4) SSH into the driver node and run the following commands:
+- chmod 400 /home/ec2-user/.ssh/worker1.pem 
+- chmod 400 /home/ec2-user/.ssh/worker2.pem
+
+Now you can ssh into the worker1 and worker2 nodes from the driver. Next step is to setup passwordless ssh from driver into the worker nodes.
+
+5) scp passwordless_ssh_driver.sh push_driver_pub_key_to_workers.sh to driver
+apply chmod +x to both files.
+
+6) scp passwordless_ssh_worker.sh to workers and chmod +x the file on both workers
+
+7) Run './passwordless_ssh_driver.sh' on driver. This will transfer the pub key to both workers
+
+8) Run './passwordless_ssh_worker.sh' on both workers.

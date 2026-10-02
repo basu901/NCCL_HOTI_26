@@ -1,0 +1,65 @@
+This guide provides the steps to setup NVIDIA drivers for AL2023: https://docs.aws.amazon.com/linux/al2023/ug/nvidia-drivers.html
+
+Check root storage has enough space > 13 GB
+0) df -h
+
+$ df -h
+Filesystem        Size  Used Avail Use% Mounted on
+devtmpfs          4.0M     0  4.0M   0% /dev
+tmpfs              16G     0   16G   0% /dev/shm
+tmpfs             6.2G  504K  6.2G   1% /run
+efivarfs          128K  3.0K  121K   3% /sys/firmware/efi/efivars
+/dev/nvme0n1p1    8.0G  3.1G  5.0G  39% /                           <------------- this filesystem, not tmpfs
+tmpfs              16G  4.0K   16G   1% /tmp
+/dev/nvme0n1p128   10M  1.3M  8.7M  13% /boot/efi
+tmpfs             3.1G     0  3.1G   0% /run/user/1000
+
+1) sudo dnf install nvidia-release -y       ---------> enables drivers which are securely locked in AL2023
+2) dnf repolist     -----------------> Checks command 1 enabled the drivers
+3) sudo dnf install kernel6.18-devel      -----------> installs the kernels for the driver
+4) sudo dnf install kernel6.18-headers    -----------> installs the associated headers for the driver. This may already be completed as part of step 3)
+5) sudo dnf install nvidia-driver-cuda -y    ---------> installs the drivers
+6) sudo reboot       ----------------> reboot the instance after installation
+7) nvidia-smi          --------------> Check drivers were installed 
+8) sudo dnf install cuda-toolkit -y         ----------> install the cuda toolkit( This is what consumes space )
+9) Adding nvcc to path:
+$ export PATH="/usr/local/cuda/bin:$PATH"
+$ export LD_LIBRARY_PATH="/usr/local/cuda/lib64:$LD_LIBRARY_PATH"
+
+For installing NVLink drivers: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/public-nvidia-driver.html
+
+
+For installing NCCL:
+
+Run the following code to find out arch and code(Source: https://stackoverflow.com/questions/35485087/determining-which-gencode-compute-arch-values-i-need-for-nvcc-within-cmak):
+
+#include <stdio.h>
+int main()
+{
+cudaDeviceProp prop;
+cudaGetDeviceProperties(&prop,0);
+int v = prop.major * 10 + prop.minor;
+printf("-gencode arch=compute_%d,code=sm_%d\n",v,v);
+}
+
+
+Prerequisites: Source(https://docs.nvidia.com/deeplearning/nccl/archives/nccl_284/user-guide/docs/2.4.7/installing.html)
+
+$ cd /opt
+$ git clone https://github.com/nvidia/nccl.git
+$ cd nccl
+$ make -j ------> Or the line below, since this cause Out of Mem on current EC2 instance type: g4dn with 16GB of RAM.
+
+Source(https://github.com/nvidia/nccl)
+$ make -j 20 src.build NVCC_GENCODE="-gencode=arch=compute_75,code=sm_75"      -----------> We are specifying 20 workers, to prevent Out of Mem.
+
+The above steps compile the code. For installation:
+
+$ make pkg.txz.build
+$ ls build/pkg/txz/  -----> shows the extracted nccl library folders(include, bin, lib etc)
+$ cd build/pkg/txz/
+$ tar -xJf nccl_*.txz
+$ sudo mkdir /usr/local/nccl
+$ sudo cp -r nccl_*/* /usr/local/nccl/
+
+You have to add the library .so files for it to be discoverable by the machine.
